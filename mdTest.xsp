@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xp:view xmlns:xp="http://www.ibm.com/xsp/core">
+
+  <xp:this.data>
+    <!-- Set formName to a form that exists in your database and has a rich text field named "Body". -->
+    <xp:dominoDocument var="doc" formName="fmMultiDelTest" />
+  </xp:this.data>
+
+  <!-- viewScope map holding which filenames are marked for deletion (key = filename, value = Boolean) -->
+  <xp:this.beforePageLoad><![CDATA[#{javascript:
+    if (viewScope.del == null) { viewScope.del = new java.util.HashMap(); }
+  }]]></xp:this.beforePageLoad>
+
+  <style>
+    .mdt-wrap{max-width:600px;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:#1f2937;padding:16px}
+    .mdt-card{border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);background:#fff}
+    .att-row:hover{background:#f8fafc}
+    .mdt-drop{border:1.5px dashed #99c4bd;background:#f3faf8;border-radius:12px;padding:16px}
+    .mdt-file{display:none}
+    .mdt-pick{display:inline-flex;align-items:center;background:#fff;color:#0b6b60;border:1px solid #0b6b60;border-radius:10px;padding:9px 18px;font-size:14px;font-weight:600;cursor:pointer}
+    .mdt-pick:hover{background:#f0faf9}
+    .mdt-save{background:#0b6b60;color:#fff;border:none;border-radius:8px;padding:12px 32px;font-size:15px;font-weight:700;letter-spacing:1px;cursor:pointer;box-shadow:0 2px 8px rgba(11,107,96,.35)}
+    .mdt-save:hover{background:#094f47}
+  </style>
+
+  <xp:panel styleClass="mdt-wrap">
+
+    <p style="font-weight:700;font-size:17px;margin:0 0 14px">Multi-select attachment delete</p>
+
+    <xp:messages style="color:#c00" />
+
+    <!-- Upload area: selecting a file auto-adds it to the list below (staged in memory, not saved yet) -->
+    <div class="mdt-drop" style="margin:0 0 16px">
+      <xp:fileUpload id="fu" value="#{doc.Body}" styleClass="mdt-file">
+        <xp:eventHandler event="onchange" submit="true" refreshMode="partial" refreshId="pnlList">
+          <xp:this.onComplete><![CDATA[
+            var i = document.querySelector('.mdt-file'); if (i) { i.value = ""; }
+          ]]></xp:this.onComplete>
+        </xp:eventHandler>
+      </xp:fileUpload>
+
+      <button type="button" class="mdt-pick"
+              onclick="var i=document.querySelector('.mdt-file'); if(i){ i.click(); }">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0b6b60" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>Choose file...
+      </button>
+
+      <div style="margin-top:10px;color:#6b7280;font-size:13px">Files are added to the list below on selection. Nothing is written to disk until you press "Save changes".</div>
+    </div>
+
+    <!-- Attachment list: each row can be marked "Delete" / "Undo" -->
+    <xp:panel id="pnlList" styleClass="mdt-card">
+      <div style="font-weight:600;color:#0b6b60;padding:12px 16px;border-bottom:1px solid #f1f5f9">Attachments (<xp:text value="#{javascript:'' + doc.getAttachmentList('Body').size()}" />)<span style="font-weight:400;color:#9ca3af;font-size:13px"> &#183; mark with "Delete", then "Save changes" to apply</span></div>
+
+      <xp:repeat var="att" value="#{javascript:doc.getAttachmentList('Body')}">
+        <xp:panel styleClass="att-row" style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid #f3f4f6">
+          <xp:text value="#{javascript:att.getName()}">
+            <xp:this.style><![CDATA[#{javascript:
+              var m = viewScope.del.get(att.getName());
+              (m != null && m.toString() == "true") ? "flex:1;text-decoration:line-through;color:#9ca3af" : "flex:1;color:#2563eb"
+            }]]></xp:this.style>
+          </xp:text>
+          <xp:button id="btnMark">
+            <xp:this.value><![CDATA[#{javascript:
+              var m = viewScope.del.get(att.getName());
+              (m != null && m.toString() == "true") ? "Undo" : "Delete"
+            }]]></xp:this.value>
+            <xp:this.style><![CDATA[#{javascript:
+              var m = viewScope.del.get(att.getName());
+              var base = "min-width:76px;border-radius:18px;padding:6px 16px;cursor:pointer;font-size:13px;font-weight:600;";
+              (m != null && m.toString() == "true")
+                ? base + "border:1px solid #cbd5e1;background:#f1f5f9;color:#475569"
+                : base + "border:1px solid #f3c0c0;background:#fef2f2;color:#c0392b"
+            }]]></xp:this.style>
+            <xp:eventHandler event="onclick" submit="true" refreshMode="partial" refreshId="pnlList">
+              <xp:this.action><![CDATA[#{javascript:
+                var nm = att.getName();
+                var m = viewScope.del.get(nm);
+                var marked = (m != null && m.toString() == "true");
+                viewScope.del.put(nm, !marked);
+              }]]></xp:this.action>
+            </xp:eventHandler>
+          </xp:button>
+        </xp:panel>
+      </xp:repeat>
+    </xp:panel>
+
+    <!-- One save: applies new uploads + marked deletions in a single document save (removeAttachment needs a save to take effect) -->
+    <div style="margin-top:18px;text-align:right">
+      <xp:button value="Save changes" id="btnSave" styleClass="mdt-save">
+        <xp:eventHandler event="onclick" submit="true" refreshMode="complete">
+          <xp:this.action><![CDATA[#{javascript:
+            var del = viewScope.del;
+            var it = del.keySet().iterator();
+            while (it.hasNext()) {
+              var nm = it.next();
+              var v = del.get(nm);
+              if (v != null && v.toString() == "true") { doc.removeAttachment("Body", nm); }
+            }
+            doc.save();
+            context.redirectToPage("/mdTest.xsp?documentId=" + doc.getDocument().getUniversalID() + "&action=editDocument");
+          }]]></xp:this.action>
+        </xp:eventHandler>
+      </xp:button>
+    </div>
+
+  </xp:panel>
+</xp:view>
