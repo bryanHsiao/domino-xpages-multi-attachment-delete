@@ -35,10 +35,10 @@ Deletion follows the user's save — mark now, reversible until you save.
 - **Clear the upload input after each upload** (in `onComplete`), or `fileUpload` re-attaches the same file on the next submit and Domino renames the duplicate `-2`.
 - **Don't drop to the back end**: mixing the data-source save with `doc.getDocument().getAttachment(name).remove()` can produce save conflicts. Stay at the data-source layer with `removeAttachment`.
 
-## Known limitations
+## Notes
 
-- `removeAttachment` matches by **filename**, so it can't distinguish two identically-named attachments on the same document — an inherent limit of a name-based API.
-- No undo once saved. That is why "mark, reversible until save" matters.
+- **No undo once saved** — the attachment is gone (recoverable only from a replica/backup). That is why "mark, reversible until save" matters.
+- **Deleting by name is safe**: a document won't hold two attachments with the identical filename — Domino uniquifies duplicate uploads (`foo-2`, `foo-3`), so filenames are unique and a name-based delete won't hit the wrong file.
 
 ## Writeup
 
